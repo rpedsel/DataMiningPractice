@@ -1,0 +1,14 @@
+import sys
+f = open(sys.argv[1])
+ff = open(sys.argv[2],'w')
+arr = []
+for line in iter(f):
+    arr.append(sorted(map(int,line.split(","))))
+for a in arr:
+    if len(a) == 1:
+        ff.write(str(a[0])+"\n")
+    else:
+        for i in a[:-1]:
+            ff.write(str(i)+",")
+        ff.write(str(a[-1])+"\n")
+
