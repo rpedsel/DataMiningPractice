@@ -13,8 +13,7 @@ if __name__=="__main__":
         M[e[0]-1,e[1]-1] = e[2]
     U = np.ones((n, f,))
     V = np.ones((f, m,))
-    print "M:"
-    print M
+    
     for it in xrange(k):
         for r in xrange(n):
             for s in xrange(f):
@@ -24,24 +23,16 @@ if __name__=="__main__":
                         sumuv = np.dot(U[r,:],V[:,j])-U[r,s]*V[s,j]
                         numerator += (V[s,j]*(M[r,j]- sumuv))
                         denominator += V[s,j]**2
-                        print "sumuv:",sumuv
-                        print numerator, denominator
                 U[r,s] = numerator/denominator
-                print r,s,it
-                print U
-                print " "
         for s in xrange(m):
             for r in xrange(f):
+                numerator, denominator = 0, 0
                 for i in xrange(n):
                     if not np.isnan(M[i,s]):
                         sumuv = np.dot(U[i,:],V[:,s])-U[i,r]*V[r,s]
                         numerator += (U[i,r]*(M[i,s]-sumuv))
                         denominator += U[i,r]**2
-                        print "sumuv:",sumuv
-                        print numerator, denominator
                 V[r,s] = numerator/denominator
-                print V
-                print ""
         
         Mfix = np.matmul(U,V)
         error = 0
@@ -51,4 +42,4 @@ if __name__=="__main__":
                 if not np.isnan(M[row,col]):
                     error += (M[row,col]-Mfix[row,col])**2
                     count += 1
-        print "err:",np.sqrt(error/count)
+        print "%.4f" %np.sqrt(error/count)
