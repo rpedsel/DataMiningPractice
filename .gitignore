@@ -1,3 +1,5 @@
 *.pdf
 *.jar
+*.log
 out.txt
+metastore_db/
