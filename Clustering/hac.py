@@ -1,3 +1,4 @@
+from copy import deepcopy
 from sys import argv
 from scipy.sparse import csc_matrix
 import numpy as np
@@ -37,10 +38,14 @@ def distance(c1,c2,matrix):
     v2 = matrix[c2]
     len1 = np.sqrt(v1.power(2).sum())
     len2 = np.sqrt(v2.power(2).sum())
+    if len1 == 0 or len2 == 0:
+        return 0
     prod = float(v1.dot(v2.transpose()).toarray())
-    #print len1,len2,prod
-    return prod / (len1*len2)
-    
+    return 1 - prod / (len1*len2)
+
+def centroid(cluster,matrix):
+    return matrix[cluster,:].mean(0)
+
 lines = [line.rstrip('\n').split(" ") for line in open(argv[1])]
 k = int(argv[2])
 
@@ -52,7 +57,7 @@ col = map(lambda x: int(x[1])-1,lines)
 data = map(lambda x: int(x[2]),lines)
 
 #tf
-M = csc_matrix((data, (row,col)), shape=(N,V))
+M = csc_matrix((data, (row,col)), shape=(2*N-k,V))
 
 #df, idf
 M_df = csc_matrix(([1]*len(data), (row,col)),shape=(N,V))
@@ -71,7 +76,7 @@ euclid = csc_matrix(map(lambda x: 1./np.sqrt(float(x)) if float(x)!=0 else 0, eu
 M =euclid.transpose().multiply(M)
 
 #clusters list to record clusters status
-clusters = [i for i in range(N)]
+clusters = [[i] for i in range(N)]
 #print M[0]
 #distance(0,1,M)
 for i in range(N):
@@ -81,4 +86,27 @@ for i in range(N):
 current_count = N
 
 for i in range(N-k):
+    c1,c2 = pop_task()
+    for p in pq:
+        if p[2] != REMOVED:
+            p1,p2 = clusters[p[2][0]],clusters[p[2][1]]
+            if (set(p1) | set(p2)) & set(clusters[c1]+clusters[c2]): 
+                remove_task((p[2][0],p[2][1]))
+    clusters.append(clusters[c1][:]+clusters[c2][:])
+    #print clusters
+    clusters[c1] = -1
+    clusters[c2] = -1
+    #print clusters[current_count]
+    M[current_count] = centroid(clusters[current_count],M)
+    #print clusters
+    #print M[current_count]
+    for j in range(current_count):
+        if clusters[j] != -1:
+            add_task((j,current_count),distance(j,current_count,M))
+    current_count += 1
+
+for cluster in clusters:
+    if cluster != -1:
+        dc = ",".join(str(d+1) for d in sorted(cluster))
+        print dc
 
