@@ -27,8 +27,6 @@ def add(v1, v2):
 
     return lg.SparseVector(v1.size, values)
 
-lg.SparseVector.__add__ = add
-
 def divide(v,n):
     vd = dict(zip(v.indices,v.values))
     values = {i:vd.get(i)/n for i in v.indices}
@@ -53,45 +51,51 @@ def closestPoint(p,centers):
             bestIndex = i
     return bestIndex
 
-spark = SparkSession\
-        .builder\
-        .appName("PythonKMeans")\
-        .getOrCreate()
 
-lines = spark.read.text(sys.argv[1])\
-        .rdd.map(lambda r: r[0])\
-        .map(lambda x: x.split(" "))\
-        .map(lambda x: [int(i) for i in x])
-k = int(sys.argv[2])
-header = lines.take(2)
-N,V = header[0][0],header[1][0]
+if __name__ == "__main__":
 
-doc_tf = lines.filter(lambda x: len(x)>1)\
-        .map(lambda x: (x[0]-1,(x[1]-1,x[2])))\
-        .groupByKey()\
-        .map(lambda x: (x[0],lg.SparseVector(V,x[1])))\
-        .sortByKey()\
-
-tf = doc_tf.map(lambda x: x[1])
-idf = ft.IDF()
-model = idf.fit(tf)
-tfidf = model.transform(tf).\
-        map(lambda x: lg.SparseVector(x.size,x.indices,x.values/x.norm(2)))\
-        .cache()
-kPoints = tfidf.repartition(1).takeSample(False, k, 1)
-convergeDist = float(sys.argv[3])
-tempDist = 1.0
-
-while tempDist > convergeDist:
-    closest = tfidf.map(lambda p: (closestPoint(p,kPoints), (p,1)))
-    pointStats = closest.reduceByKey(lambda p1_c1,p2_c2:
-            (add(p1_c1[0],p2_c2[0]),p1_c1[1]+p2_c2[1]))
-    newPoints = pointStats.map(lambda st: (st[0],divide(st[1][0],st[1][1]))).collect()
-    tempDist = sum(np.sqrt(kPoints[iK].squared_distance(p)) for (iK,p) in newPoints)
-    #tempDist = sum(kPoints[iK].squared_distance(p) for (iK,p) in newPoints)
-    for (iK,p) in newPoints:
-        kPoints[iK] = p
-
-nz = [v.numNonzeros() for v in kPoints]
-
-print("Final centers: " + str(nz))
+    spark = SparkSession\
+            .builder\
+            .appName("PythonKMeans")\
+            .getOrCreate()
+    
+    lines = spark.read.text(sys.argv[1])\
+            .rdd.map(lambda r: r[0])\
+            .map(lambda x: x.split(" "))\
+            .map(lambda x: [int(i) for i in x])
+    k = int(sys.argv[2])
+    header = lines.take(2)
+    N,V = header[0][0],header[1][0]
+    
+    doc_tf = lines.filter(lambda x: len(x)>1)\
+            .map(lambda x: (x[0]-1,(x[1]-1,x[2])))\
+            .groupByKey()\
+            .map(lambda x: (x[0],lg.SparseVector(V,x[1])))\
+            .sortByKey()\
+    
+    tf = doc_tf.map(lambda x: x[1])
+    idf = ft.IDF()
+    model = idf.fit(tf)
+    tfidf = model.transform(tf).\
+            map(lambda x: lg.SparseVector(x.size,x.indices,x.values/x.norm(2)))\
+            .cache()
+    kPoints = tfidf.repartition(1).takeSample(False, k, 1)
+    convergeDist = float(sys.argv[3])
+    tempDist = 1.0
+    
+    while tempDist > convergeDist:
+        closest = tfidf.map(lambda p: (closestPoint(p,kPoints), (p,1)))
+        pointStats = closest.reduceByKey(lambda p1_c1,p2_c2:
+                (add(p1_c1[0],p2_c2[0]),p1_c1[1]+p2_c2[1]))
+        newPoints = pointStats.map(lambda st: (st[0],divide(st[1][0],st[1][1]))).collect()
+        tempDist = sum(np.sqrt(kPoints[iK].squared_distance(p)) for (iK,p) in newPoints)
+        #tempDist = sum(kPoints[iK].squared_distance(p) for (iK,p) in newPoints)
+        for (iK,p) in newPoints:
+            kPoints[iK] = p
+    
+    nz = [v.numNonzeros() for v in kPoints]
+    
+    f = open(sys.argv[4],'w')
+    for i in nz:
+        f.write(str(i)+"\n")
+    f.close()
